@@ -22,21 +22,36 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Decode keystore
+      - name: Generate upload keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $RUNNER_TEMP/upload.keystore
+          KEYSTORE_PASS=$(cat /proc/sys/kernel/random/uuid | tr -d '-' | head -c 24)
+          echo "KEYSTORE_PASS=$KEYSTORE_PASS" >> $GITHUB_ENV
+          keytool -genkeypair \
+            -alias upload \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 9125 \
+            -keystore $RUNNER_TEMP/upload.keystore \
+            -storepass "$KEYSTORE_PASS" \
+            -keypass "$KEYSTORE_PASS" \
+            -dname "CN=iTECHO Health,OU=Android,O=iTECHO,L=Unknown,S=Unknown,C=US"
+          echo "$KEYSTORE_PASS" > $RUNNER_TEMP/keystore-password.txt
+          echo "Keystore alias: upload" >> $RUNNER_TEMP/keystore-password.txt
 
       - name: Build release AAB
         env:
           KEYSTORE_PATH: ${{ runner.temp }}/upload.keystore
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ env.KEYSTORE_PASS }}
           KEY_ALIAS: upload
-          KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ env.KEYSTORE_PASS }}
         run: gradle bundleRelease
 
-      - name: Upload AAB artifact
+      - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: itecho-health-release
-          path: app/build/outputs/bundle/release/app-release.aab
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            ${{ runner.temp }}/upload.keystore
+            ${{ runner.temp }}/keystore-password.txt
           retention-days: 30
