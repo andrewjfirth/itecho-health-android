@@ -24,7 +24,7 @@ jobs:
 
       - name: Decode upload keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $RUNNER_TEMP/upload.keystore
+          printf '%s' "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $RUNNER_TEMP/upload.keystore
 
       - name: Build release AAB
         env:
